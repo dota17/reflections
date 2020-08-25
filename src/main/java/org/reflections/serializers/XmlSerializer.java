@@ -19,6 +19,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.StringWriter;
 import java.lang.reflect.Constructor;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /** serialization of Reflections to xml
  *
@@ -58,7 +60,7 @@ public class XmlSerializer implements Serializer {
                     Element values = entry.element("values");
                     for (Object o3 : values.elements()) {
                         Element value = (Element) o3;
-                        reflections.getStore().put(index.getName(), key.getText(), value.getText());
+                        reflections.getStore().put(index.getName(), key.getText(), new Store.typeInfo(value.getText(), false));
                     }
                 }
             }
@@ -114,11 +116,15 @@ public class XmlSerializer implements Serializer {
                 Element entryElement = indexElement.addElement("entry");
                 entryElement.addElement("key").setText(key);
                 Element valuesElement = entryElement.addElement("values");
-                for (String value : map.get(indexName, key)) {
+                for (String value : typeToString(map.get(indexName, key))) {
                     valuesElement.addElement("value").setText(value);
                 }
             }
         }
         return document;
+    }
+
+    private Set<String> typeToString (Set<Store.typeInfo> typeInfos) {
+        return typeInfos.stream().map(Store.typeInfo::getTypeName).collect(Collectors.toSet());
     }
 }

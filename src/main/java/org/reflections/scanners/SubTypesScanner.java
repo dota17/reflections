@@ -26,8 +26,9 @@ public class SubTypesScanner extends AbstractScanner {
 		String className = getMetadataAdapter().getClassName(cls);
 		String superclass = getMetadataAdapter().getSuperclassName(cls);
 
+		Store.typeInfo  baseType = new Store.typeInfo(className, false);
         if (acceptResult(superclass)) {
-            put(store, superclass, className);
+            put(store, superclass, baseType);
         }
 
 		for (String anInterface : (List<String>) getMetadataAdapter().getInterfacesNames(cls)) {

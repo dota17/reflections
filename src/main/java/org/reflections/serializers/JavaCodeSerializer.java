@@ -3,6 +3,7 @@ package org.reflections.serializers;
 import org.reflections.ReflectionUtils;
 import org.reflections.Reflections;
 import org.reflections.ReflectionsException;
+import org.reflections.Store;
 import org.reflections.scanners.TypeElementsScanner;
 import org.reflections.util.Utils;
 
@@ -20,6 +21,7 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
@@ -157,7 +159,7 @@ public class JavaCodeSerializer implements Serializer {
             List<String> fields = new ArrayList<>();
             List<String> methods = new ArrayList<>();
 
-            Iterable<String> members = reflections.getStore().get(index(TypeElementsScanner.class), fqn);
+            Iterable<String> members = typeToString(reflections.getStore().get(index(TypeElementsScanner.class), fqn));
             List<String> sorted = StreamSupport.stream(members.spliterator(), false).sorted().collect(Collectors.toList());
             for (String element : sorted) {
                 if (element.startsWith("@")) {
@@ -320,5 +322,9 @@ public class JavaCodeSerializer implements Serializer {
         } catch (Exception e) {
             throw new ReflectionsException("could not resolve to method " + aMethod.getName(), e);
         }
+    }
+
+    private Set<String> typeToString (Set<Store.typeInfo> typeInfos) {
+        return typeInfos.stream().map(Store.typeInfo::getTypeName).collect(Collectors.toSet());
     }
 }
