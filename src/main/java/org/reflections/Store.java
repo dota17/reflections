@@ -85,7 +85,7 @@ public class Store {
         for (int i = 0; i < workKeys.size(); i++) {
             typeInfo key = workKeys.get(i);
             if (result.add(key)) {
-                Collection<typeInfo> values = mmap.get(key);
+                Collection<typeInfo> values = mmap.get(key.getTypeName());
                 if (values != null) {
                     workKeys.addAll(values);
                 }

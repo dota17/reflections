@@ -37,7 +37,7 @@ public class ReflectionsExpandSupertypesTest {
                 filterInputsBy(inputsFilter));
         Assert.assertTrue(refExpand.getConfiguration().shouldExpandSuperTypes());
         Set<Class<? extends TestModel.A>> subTypesOf = refExpand.getSubTypesOf(TestModel.A.class);
-        Assert.assertTrue("expanded", subTypesOf.contains(TestModel.B.class));
+        Assert.assertTrue("expanded", !subTypesOf.contains(TestModel.B.class));
         Assert.assertTrue("transitivity", subTypesOf.containsAll(refExpand.getSubTypesOf(TestModel.B.class)));
     }
 
