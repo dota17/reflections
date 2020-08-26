@@ -36,8 +36,12 @@ public abstract class AbstractScanner implements Scanner {
 
     public abstract void scan(Object cls, Store store);
 
-    protected void put(Store store, String key, String value) {
+    protected void put(Store store, String key, Store.typeInfo value) {
         store.put(Utils.index(getClass()), key, value);
+    }
+
+    protected void put(Store store, String key, String value) {
+        store.put(Utils.index(getClass()), key, new Store.typeInfo(value, false));
     }
 
     //

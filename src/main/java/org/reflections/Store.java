@@ -23,7 +23,7 @@ import static org.reflections.util.Utils.index;
  */
 public class Store {
 
-    private final ConcurrentHashMap<String, Map<String, Collection<String>>> storeMap;
+    private final ConcurrentHashMap<String, Map<String, Collection<typeInfo>>> storeMap;
 
     protected Store(Configuration configuration) {
         storeMap = new ConcurrentHashMap<>();
@@ -39,8 +39,8 @@ public class Store {
     }
 
     /** get the multimap object for the given {@code index}, otherwise throws a {@link org.reflections.ReflectionsException} */
-    private Map<String, Collection<String>> get(String index) {
-        Map<String, Collection<String>> mmap = storeMap.get(index);
+    private Map<String, Collection<typeInfo>> get(String index) {
+        Map<String, Collection<typeInfo>> mmap = storeMap.get(index);
         if (mmap == null) {
             throw new ReflectionsException("Scanner " + index + " was not configured");
         }
@@ -48,26 +48,26 @@ public class Store {
     }
 
     /** get the values stored for the given {@code index} and {@code keys} */
-    public Set<String> get(Class<?> scannerClass, String key) {
-        return get(index(scannerClass), Collections.singletonList(key));
+    public Set<typeInfo> get(Class<?> scannerClass, String key) {
+        return get(index(scannerClass), Collections.singletonList(new typeInfo(key, true)));
     }
 
     /** get the values stored for the given {@code index} and {@code keys} */
-    public Set<String> get(String index, String key) {
-        return get(index, Collections.singletonList(key));
+    public Set<typeInfo> get(String index, String key) {
+        return get(index, Collections.singletonList(new typeInfo(key, true)));
     }
 
     /** get the values stored for the given {@code index} and {@code keys} */
-    public Set<String> get(Class<?> scannerClass, Collection<String> keys) {
+    public Set<typeInfo> get(Class<?> scannerClass, Collection<typeInfo> keys) {
         return get(index(scannerClass), keys);
     }
 
     /** get the values stored for the given {@code index} and {@code keys} */
-    private Set<String> get(String index, Collection<String> keys) {
-        Map<String, Collection<String>> mmap = get(index);
-        Set<String> result = new LinkedHashSet<>();
-        for (String key : keys) {
-            Collection<String> values = mmap.get(key);
+    private Set<typeInfo> get(String index, Collection<typeInfo> keys) {
+        Map<String, Collection<typeInfo>> mmap = get(index);
+        Set<typeInfo> result = new LinkedHashSet<>();
+        for (String key : keys.stream().map(typeInfo::getTypeName).collect(Collectors.toSet())) {
+            Collection<typeInfo> values = mmap.get(key);
             if (values != null) {
                 result.addAll(values);
             }
@@ -76,22 +76,22 @@ public class Store {
     }
 
     /** recursively get the values stored for the given {@code index} and {@code keys}, including keys */
-    public Set<String> getAllIncluding(Class<?> scannerClass, Collection<String> keys) {
+    public Set<String> getAllIncluding(Class<?> scannerClass, Collection<typeInfo> keys) {
         String index = index(scannerClass);
-        Map<String, Collection<String>> mmap = get(index);
-        List<String> workKeys = new ArrayList<>(keys);
+        Map<String, Collection<typeInfo>> mmap = get(index);
+        List<typeInfo> workKeys = new ArrayList<>(keys);
 
-        Set<String> result = new HashSet<>();
+        Set<typeInfo> result = new HashSet<>();
         for (int i = 0; i < workKeys.size(); i++) {
-            String key = workKeys.get(i);
+            typeInfo key = workKeys.get(i);
             if (result.add(key)) {
-                Collection<String> values = mmap.get(key);
+                Collection<typeInfo> values = mmap.get(key.getTypeName());
                 if (values != null) {
                     workKeys.addAll(values);
                 }
             }
         }
-        return result;
+        return result.stream().filter(typeInfo -> !typeInfo.isExternal).map(typeInfo::getTypeName).collect(Collectors.toSet());
     }
 
     /** recursively get the values stored for the given {@code index} and {@code keys}, not including keys */
@@ -100,26 +100,26 @@ public class Store {
     }
 
     /** recursively get the values stored for the given {@code index} and {@code keys}, not including keys */
-    public Set<String> getAll(Class<?> scannerClass, Collection<String> keys) {
+    public Set<String> getAll(Class<?> scannerClass, Collection<typeInfo> keys) {
         return getAllIncluding(scannerClass, get(scannerClass, keys));
     }
 
     public Set<String> keys(String index) {
-        Map<String, Collection<String>> map = storeMap.get(index);
+        Map<String, Collection<typeInfo>> map = storeMap.get(index);
         return map != null ? new HashSet<>(map.keySet()) : Collections.emptySet();
     }
 
     public Set<String> values(String index) {
-        Map<String, Collection<String>> map = storeMap.get(index);
-        return map != null ? map.values().stream().flatMap(Collection::stream).collect(Collectors.toSet()) : Collections.emptySet();
+        Map<String, Collection<typeInfo>> map = storeMap.get(index);
+        return map != null ? map.values().stream().flatMap(Collection::stream).map(typeInfo::getTypeName).collect(Collectors.toSet()) : Collections.emptySet();
     }
 
     //
-    public boolean put(Class<?> scannerClass, String key, String value) {
+    public boolean put(Class<?> scannerClass, String key, typeInfo value) {
         return put(index(scannerClass), key, value);
     }
 
-    public boolean put(String index, String key, String value) {
+    public boolean put(String index, String key, typeInfo value) {
         return storeMap.computeIfAbsent(index, s -> new ConcurrentHashMap<>())
                 .computeIfAbsent(key, s -> Collections.synchronizedList(new ArrayList<>()))
                 .add(value);
@@ -128,15 +128,35 @@ public class Store {
     void merge(Store store) {
         if (store != null) {
             for (String indexName : store.keySet()) {
-                Map<String, Collection<String>> index = store.get(indexName);
+                Map<String, Collection<typeInfo>> index = store.get(indexName);
                 if (index != null) {
                     for (String key : index.keySet()) {
-                        for (String string : index.get(key)) {
-                            put(indexName, key, string);
+                        for (typeInfo type : index.get(key)) {
+                            put(indexName, key, type);
                         }
                     }
                 }
             }
         }
+    }
+
+    public static class typeInfo {
+        private String typeName;
+
+        private boolean isExternal;
+
+        public typeInfo(String typeName, boolean isExternal) {
+            this.typeName = typeName;
+            this.isExternal = isExternal;
+        }
+
+        public String getTypeName() {
+            return typeName;
+        }
+
+        public boolean isExternal() {
+            return isExternal;
+        }
+
     }
 }
